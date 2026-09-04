@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# mac-vision-ocr 安装：拷贝脚本 + 注册 MCP（幂等，可重复执行）
+# mac-vision-ocr installer: copy scripts + register MCP (idempotent, safe to re-run)
 set -euo pipefail
 
 SRC="$(cd "$(dirname "$0")" && pwd)"
@@ -7,10 +7,10 @@ BIN="$HOME/.claude/bin"
 mkdir -p "$BIN"
 cp "$SRC/ocr_vision.swift" "$BIN/ocr_vision.swift"
 cp "$SRC/server.py" "$BIN/ocr_mcp_server.py"
-echo "✅ 脚本已拷贝到 $BIN"
+echo "OK: scripts copied to $BIN"
 
 if ! command -v uv >/dev/null 2>&1; then
-  echo "❌ 未找到 uv，请先安装：https://docs.astral.sh/uv/" >&2
+  echo "ERROR: uv not found. Install it first: https://docs.astral.sh/uv/" >&2
   exit 1
 fi
 UV="$(command -v uv)"
@@ -31,7 +31,7 @@ except FileNotFoundError:
     d = {}
 d.setdefault("mcpServers", {})["mac-vision-ocr"] = entry
 json.dump(d, open(path, "w"), indent=2, ensure_ascii=False)
-print("✅ 已注册/更新 ~/.claude.json → mcpServers.mac-vision-ocr")
+print("OK: registered/updated mcpServers.mac-vision-ocr in ~/.claude.json")
 PY
 
-echo "安装完成。重启 Claude Code 新会话后生效。"
+echo "Done. Restart Claude Code (new session) to take effect."

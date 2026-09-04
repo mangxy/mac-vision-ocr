@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""macOS Vision OCR MCP server（月儿自封版，2026-09-04）。
+"""macOS local OCR + vision MCP server.
 
-包装 ~/.claude/bin/ocr_vision.swift（Swift + Vision 框架，本地离线免费）。
-来源：hermes 的 apple-vision-ocr 技能，经月儿试炼后收编进 CC。
+Two tools:
+- ocr: extract text from images via the macOS Vision framework (offline, free, ~1s).
+- see: ask a local multimodal LLM (oMLX) about an image.
+
+The Swift OCR script lives at ~/.claude/bin/ocr_vision.swift (installed by install.sh).
 """
 import base64
 import json
@@ -18,7 +21,7 @@ mcp = FastMCP("mac-vision-ocr")
 
 
 def _omlx_conf():
-    """读本地 VLM 接口配置：env 优先，其次 ~/.openviking/ov.conf 的 vlm 块。"""
+    """Read local VLM endpoint config: env vars first, then ~/.openviking/ov.conf vlm block."""
     conf = {
         "base": os.environ.get("OMLX_BASE_URL", ""),
         "key": os.environ.get("OMLX_API_KEY", ""),
@@ -42,50 +45,53 @@ MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
 
 @mcp.tool()
 def ocr(path: str, langs: str = "zh-Hans,en-US") -> str:
-    """OCR 提取图片文字（macOS Vision 框架，本地离线，约 1 秒，中英文满准）。
+    """Extract text from an image (macOS Vision framework; local, offline, ~1s, near-perfect on Chinese+English).
 
     Args:
-        path: 图片文件绝对路径（png/jpg 截图等）。
-        langs: 逗号分隔的语言码，默认 zh-Hans,en-US。中英混排保持默认即可。
+        path: absolute path to the image (png/jpg screenshot etc.).
+        langs: comma-separated language codes, default zh-Hans,en-US.
 
     Returns:
-        按版面顺序（上到下、左到右）的文字，每行前缀 y= x= 归一化坐标（可忽略）。
-        返回「图里没抠出文字」说明是纯图/照片，应改用视觉理解类工具。
+        Text lines in layout order (top-to-bottom, left-to-right), each prefixed
+        with normalized y= x= coords (ignorable). An empty-text notice means the
+        image has no text (photo/icon) — use a vision-model tool instead.
     """
     p = os.path.abspath(os.path.expanduser(path))
     if not os.path.isfile(p):
-        return f"错误：文件不存在 {p}"
+        return f"Error: file not found: {p}"
     lang_args = [l.strip() for l in langs.split(",") if l.strip()]
     r = subprocess.run(
         ["swift", SWIFT, p] + lang_args,
         capture_output=True, text=True, timeout=120,
     )
     if r.returncode != 0:
-        return f"错误：{r.stderr.strip()[:500]}"
-    return r.stdout.strip() or "（图里没抠出文字——纯图/照片请改用视觉理解工具）"
+        return f"Error: {r.stderr.strip()[:500]}"
+    return r.stdout.strip() or "(No text found — likely a photo/icon; use a vision-model tool instead)"
 
 
 @mcp.tool()
-def see(path: str, question: str = "详细描述这张图的内容", timeout: int = 300) -> str:
-    """看懂图片（本地 oMLX VLM，离线免费；炉子被批处理占满时会排队较久）。
+def see(path: str, question: str = "Describe this image in detail.", timeout: int = 300) -> str:
+    """Understand an image with a local multimodal LLM via oMLX (offline, free). Slow while the server is busy with batch jobs.
 
     Args:
-        path: 图片文件绝对路径（png/jpg/webp 等）。
-        question: 想问这张图什么，默认"详细描述这张图的内容"。
-        timeout: 等待秒数，默认 300。烧库/提取期间队列长，超时建议改走云端视觉工具。
+        path: absolute path to the image (png/jpg/webp/gif/bmp).
+        question: what to ask about the image, default "Describe this image in detail.".
+        timeout: seconds to wait, default 300. If batch jobs are queueing, consider
+            falling back to a cloud vision tool instead of waiting.
 
     Returns:
-        模型对图片的回答。炉忙超时会明说，届时换视觉理解云端工具即可。
+        The model's answer, or a timeout/unreachable notice suggesting a cloud
+        vision tool or retry when the server is idle.
     """
     p = os.path.abspath(os.path.expanduser(path))
     if not os.path.isfile(p):
-        return f"错误：文件不存在 {p}"
+        return f"Error: file not found: {p}"
     mime = MIME.get(os.path.splitext(p)[1].lower())
     if not mime:
-        return f"错误：不认识的图片格式 {p}"
+        return f"Error: unsupported image format: {p}"
     conf = _omlx_conf()
     if not conf["model"]:
-        return "错误：没找到本地 VLM 配置（OMLX_MODEL 或 ~/.openviking/ov.conf 的 vlm 块）"
+        return "Error: no local VLM config found (set OMLX_MODEL or the vlm block in ~/.openviking/ov.conf)"
 
     img = base64.b64encode(open(p, "rb").read()).decode()
     body = json.dumps({
@@ -103,9 +109,10 @@ def see(path: str, question: str = "详细描述这张图的内容", timeout: in
         r = json.load(urllib.request.urlopen(req, timeout=timeout))
         return r["choices"][0]["message"]["content"].strip()
     except KeyError:
-        return f"错误：响应格式意外 {json.dumps(r, ensure_ascii=False)[:300]}"
+        return f"Error: unexpected response shape: {json.dumps(r, ensure_ascii=False)[:300]}"
     except Exception as e:
-        return f"炉子忙/不可达（{type(e).__name__}: {e}）——队列长时会这样，建议改走云端视觉工具，或等炉空再试"
+        return (f"Local VLM busy or unreachable ({type(e).__name__}: {e}). "
+                "Long queue likely — use a cloud vision tool or retry when idle.")
 
 
 if __name__ == "__main__":

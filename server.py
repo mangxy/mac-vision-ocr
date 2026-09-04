@@ -107,10 +107,14 @@ def see(path: str, question: str = "Describe this image in detail.", timeout: in
         "model": conf["model"],
         "messages": [{"role": "user", "content": [
             {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img}"}},
-            {"type": "text", "text": ("Format: answer in Simplified Chinese Markdown "
-        "(tables/lists where fitting).\n\n" + question)},
+            {"type": "text", "text": (
+        "Format: answer in Simplified Chinese Markdown (tables/lists where fitting). "
+        "ONLY state what is actually visible; if unsure, say so. "
+        "Never invent names, relations, numbers, or facts not shown in the image. "
+        "If the image contradicts the question, correct the question.\n\n" + question)},
         ]}],
         "max_tokens": 1024,
+        "temperature": 0.2,
     }).encode()
     req = urllib.request.Request(
         conf["base"].rstrip("/") + "/chat/completions", data=body,

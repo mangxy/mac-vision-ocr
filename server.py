@@ -107,7 +107,8 @@ def see(path: str, question: str = "Describe this image in detail.", timeout: in
         "model": conf["model"],
         "messages": [{"role": "user", "content": [
             {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img}"}},
-            {"type": "text", "text": question},
+            {"type": "text", "text": ("Format: answer in Simplified Chinese Markdown "
+        "(tables/lists where fitting).\n\n" + question)},
         ]}],
         "max_tokens": 1024,
     }).encode()

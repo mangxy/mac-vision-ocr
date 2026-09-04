@@ -10,6 +10,7 @@ The Swift OCR script lives at ~/.claude/bin/ocr_vision.swift (installed by insta
 import base64
 import json
 import os
+import re
 import subprocess
 import urllib.request
 
@@ -44,17 +45,18 @@ MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
 
 
 @mcp.tool()
-def ocr(path: str, langs: str = "zh-Hans,en-US") -> str:
+def ocr(path: str, langs: str = "zh-Hans,en-US", coords: bool = False) -> str:
     """Extract text from an image (macOS Vision framework; local, offline, ~1s, near-perfect on Chinese+English).
 
     Args:
         path: absolute path to the image (png/jpg screenshot etc.).
         langs: comma-separated language codes, default zh-Hans,en-US.
+        coords: prefix each line with normalized `y= x= |` layout coords, default False.
 
     Returns:
-        Text lines in layout order (top-to-bottom, left-to-right), each prefixed
-        with normalized y= x= coords (ignorable). An empty-text notice means the
-        image has no text (photo/icon) — use a vision-model tool instead.
+        Plain text lines in layout order (top-to-bottom, left-to-right).
+        An empty-text notice means the image has no text (photo/icon) — use a
+        vision-model tool instead.
     """
     p = os.path.abspath(os.path.expanduser(path))
     if not os.path.isfile(p):
@@ -66,7 +68,14 @@ def ocr(path: str, langs: str = "zh-Hans,en-US") -> str:
     )
     if r.returncode != 0:
         return f"Error: {r.stderr.strip()[:500]}"
-    return r.stdout.strip() or "(No text found — likely a photo/icon; use a vision-model tool instead)"
+    out = r.stdout.strip()
+    if not out:
+        return "(No text found — likely a photo/icon; use a vision-model tool instead)"
+    if not coords:
+        out = "\n".join(
+            re.sub(r"^y=[\d.]+ x=[\d.]+ \| ", "", line) for line in out.splitlines()
+        )
+    return out
 
 
 @mcp.tool()

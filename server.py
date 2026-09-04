@@ -44,7 +44,7 @@ MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
         ".webp": "image/webp", ".gif": "image/gif", ".bmp": "image/bmp"}
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def ocr(path: str, langs: str = "zh-Hans,en-US", coords: bool = False) -> str:
     """Extract text from an image (macOS Vision framework; local, offline, ~1s, near-perfect on Chinese+English).
 
@@ -78,7 +78,7 @@ def ocr(path: str, langs: str = "zh-Hans,en-US", coords: bool = False) -> str:
     return out
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def see(path: str, question: str = "Describe this image in detail.", timeout: int = 300) -> str:
     """Understand an image with a local multimodal LLM via oMLX (offline, free). Slow while the server is busy with batch jobs.
 

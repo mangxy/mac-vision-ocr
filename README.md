@@ -43,6 +43,20 @@ ocr("/Users/you/Desktop/screenshot.png")
 → y=0.019 x=0.030 | …识别出的文字…
 ```
 
+## 附赠：`see` 本地看图工具（可选）
+
+`ocr` 只抠字，不懂图。若本机跑着 **oMLX** 并加载了多模态模型（如 Qwen 系列 omni），同目录注册的 `see` 工具可离线问图：
+
+| 参数 | 说明 |
+|------|------|
+| `path` | 图片绝对路径（png/jpg/webp/gif/bmp） |
+| `question` | 想问什么，默认"详细描述这张图的内容" |
+| `timeout` | 等待秒数，默认 300 |
+
+- 接口配置自动读 `~/.openviking/ov.conf` 的 `vlm` 块（或 env `OMLX_BASE_URL` / `OMLX_API_KEY` / `OMLX_MODEL`），**key 不进仓库**
+- oMLX 队列被批处理（如索引烧库）占满时会排队很久，超时会明说，改走云端视觉工具即可
+- 没有 oMLX？`see` 会报「没找到本地 VLM 配置」，`ocr` 不受影响
+
 ## 卸载
 
 ```bash
